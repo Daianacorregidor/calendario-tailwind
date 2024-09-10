@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+
+    <!-- Contenedor Principal del Calendario -->
+    <div class="flex flex-col lg:flex-row lg:space-x-6 items-center">
+        <!-- Calendario -->
+        <div class="max-w-md w-full bg-white shadow-lg rounded-lg overflow-hidden">
+            <div class="p-8">
+                <div class="flex items-center mb-6">
+                    <button aria-label="calendar backward" id="prevMonth" class="text-blue-600 dark:text-blue-600 mr-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                    <h2 id="currentMonth" class="text-2xl font-bold text-black dark:text-black flex-1 text-center"></h2>
+                    <button aria-label="calendar forward" id="nextMonth" class="text-blue-600 dark:text-blue-600 ml-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-7 gap-4 text-blue-600 dark:text-blue-600 text-lg">
+                    <span class="flex-1 text-center">Lun</span>
+                    <span class="flex-1 text-center">Mar</span>
+                    <span class="flex-1 text-center">Mie</span>
+                    <span class="flex-1 text-center">Jue</span>
+                    <span class="flex-1 text-center">Vie</span>
+                    <span class="flex-1 text-center">Sab</span>
+                    <span class="flex-1 text-center">Dom</span>
+                </div>
+
+                <div id="calendarDays" class="grid grid-cols-7 gap-4 mt-6 text-center text-gray-800 dark:text-gray-800">
+                </div>
+            </div>
+
+            <!-- Botón para Crear Evento -->
+            <div class="bg-blue-600 text-white p-6 rounded-b-lg flex justify-between items-center">
+                <span id="currentMonthLabel" class="font-bold text-lg"></span>
+                <button id="createEventBtn" class="bg-white text-black py-3 px-6 rounded-full">Agendar Clase</button>
+            </div>
+        </div>
+
+        <!-- Listado de eventos -->
+        <div class="w-full lg:w-96 bg-white shadow-lg rounded-lg p-8 mt-6 lg:mt-0">
+            <h2 class="text-2xl font-bold mb-4">Clases</h2>
+            <ul id="eventList" class="space-y-4"></ul>
+        </div>
+    </div>
+
+    <!-- Modal Oculto -->
+    <div id="eventModal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center hidden">
+        <div class="bg-white rounded-lg p-8 w-96">
+            <h2 class="text-lg font-bold text-black mb-4">Agendar Clase</h2>
+            <input type="text" id="eventTitle" placeholder="Título del Evento" class="w-full border border-gray-300 p-3 rounded mb-4">
+            <textarea id="eventDesc" placeholder="Descripción del Evento" class="w-full border border-gray-300 p-3 rounded mb-4"></textarea>
+            <input type="datetime-local" id="eventDateTime" class="w-full border border-gray-300 p-3 rounded mb-4">
+            <div class="flex justify-end">
+                <button id="closeModalBtn" class="bg-gray-300 text-gray-800 py-2 px-4 rounded mr-2">Cancelar</button>
+                <button id="saveEventBtn" class="bg-blue-600 text-white py-2 px-4 rounded">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+        let currentMonth = new Date().getMonth();
+        let currentYear = new Date().getFullYear();
+        const today = new Date(); // fecha actual
+
+        // Objeto para almacenar los eventos
+        let events = {};
+
+        function renderCalendar(month, year) {
+            const firstDay = new Date(year, month, 1).getDay(); // Obtener el día de la semana del primer día del mes
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            const calendarDays = document.getElementById('calendarDays');
+            calendarDays.innerHTML = '';
+
+            document.getElementById('currentMonth').innerText = `${months[month]} ${year}`;
+
+            // Alinear el primer día del mes correctamente
+            let emptyCells = (firstDay === 0 ? 6 : firstDay - 1); // Si es domingo (0), alinear como el último día de la semana
+            for (let i = 0; i < emptyCells; i++) {
+                const emptyCell = document.createElement('div');
+                calendarDays.appendChild(emptyCell);
+            }
+
+            for (let i = 1; i <= daysInMonth; i++) {
+                const day = document.createElement('div');
+                day.className = 'py-3 relative';
+
+                // Día actual
+                if (i === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+                    day.classList.add('bg-blue-600', 'text-white', 'rounded-full');
+                }
+
+                day.innerText = i;
+
+                // Formato de la fecha actual para verificar eventos
+                const date = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                
+                if (events[date]) {
+                    const eventIndicator = document.createElement('span');
+                    eventIndicator.className = 'text-xs bg-blue-500 text-white rounded-full px-2 absolute top-0 right-0';
+                    eventIndicator.innerText = 'clase';
+                    day.appendChild(eventIndicator);
+                }
+
+                day.addEventListener('click', () => {
+                    showEventsForDay(date);
+                });
+
+                calendarDays.appendChild(day);
+            }
+        }
+
+        function showEventsForDay(date) {
+            const eventList = document.getElementById('eventList');
+            eventList.innerHTML = '';
+
+            if (events[date]) {
+                events[date].forEach((event, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'bg-gray-100 p-4 rounded flex justify-between items-center';
+                    li.innerHTML = `
+                        <div>
+                            <h3 class="font-bold">${event.title} (${event.time})</h3>
+                            <p>${event.desc}</p>
+                        </div>
+                        <button class="bg-red-600 text-white py-2 px-4 rounded" onclick="deleteEvent('${date}', ${index})">Eliminar</button>
+                    `;
+                    eventList.appendChild(li);
+                });
+            } else {
+                eventList.innerHTML = '<li>No hay clases para este día.</li>';
+            }
+        }
+
+        function deleteEvent(date, index) {
+            events[date].splice(index, 1);
+            if (events[date].length === 0) {
+                delete events[date];
+            }
+            renderCalendar(currentMonth, currentYear);
+            showEventsForDay(date);
+        }
+
+        document.getElementById('prevMonth').onclick = () => {
+            currentMonth = (currentMonth === 0) ? 11 : currentMonth - 1;
+            currentYear = (currentMonth === 11) ? currentYear - 1 : currentYear;
+            renderCalendar(currentMonth, currentYear);
+        };
+
+        document.getElementById('nextMonth').onclick = () => {
+            currentMonth = (currentMonth === 11) ? 0 : currentMonth + 1;
+            currentYear = (currentMonth === 0) ? currentYear + 1 : currentYear;
+            renderCalendar(currentMonth, currentYear);
+        };
+
+        document.getElementById('createEventBtn').onclick = () => {
+            document.getElementById('eventModal').classList.remove('hidden');
+        };
+
+        document.getElementById('closeModalBtn').onclick = () => {
+            document.getElementById('eventModal').classList.add('hidden');
+        };
+
+        document.getElementById('saveEventBtn').onclick = () => {
+            const title = document.getElementById('eventTitle').value;
+            const desc = document.getElementById('eventDesc').value;
+            const dateTime = document.getElementById('eventDateTime').value;
+
+            if (title && dateTime) {
+                const date = new Date(dateTime).toISOString().split('T')[0];
+
+                if (!events[date]) {
+                    events[date] = [];
+                }
+
+                events[date].push({
+                    title: title,
+                    desc: desc,
+                    time: new Date(dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                });
+
+                document.getElementById('eventModal').classList.add('hidden');
+                renderCalendar(currentMonth, currentYear);
+                showEventsForDay(date);
+            }
+        };
+
+        renderCalendar(currentMonth, currentYear);
+    </script>
+</body>
+</html>
